@@ -21,8 +21,8 @@ using namespace cv;
 
 struct piecewise_poly_para
 {
-	vector<cv::Mat> A_set;
-	vector<int> div_point;
+	vector <cv::Mat> A_set;
+	vector <int> div_point;
 };
 
 struct placido_ring
@@ -734,32 +734,18 @@ vector<cv::Point> find_next_ring(const cv::Mat polar_thin,const vector<cv::Point
 	return v_now;
 }
 
-//索引所有的placido环
-vector<vector<cv::Point>> find_all_ring(cv::Mat polar_thin)
+//将待拟合的点集进行交换，也就是xy变成yx
+//xy2yx 就是xy to yx
+inline vector<cv::Point> xy2yx(vector<cv::Point> v_now)
 {
-	vector<vector<cv::Point>> ring_set;
-	vector<cv::Point> last_ring, init_ring,v_now,v_now_;
-	//last_ring ：上一个环，主要是用于下一个环的索引，当索引第0个环的时候就是等于init_ring，否则就是ring_set 的i-1环
-	// init_ring ：初始化环，主要是用于
-	for (int ii = 0; ii < polar_thin.rows; ii++)
+	vector<cv::Point> p;
+	vector<cv::Point> ::iterator cursor = v_now.begin();
+	while (cursor != v_now.end())
 	{
-		init_ring.push_back(cv::Point(5,ii));
+		p.push_back(cv::Point(cursor->y,cursor->x));
+		cursor++;
 	}
-	for (int i = 0; i <= 18; i++)
-	{
-		vector<cv::Point>().swap(last_ring);
-		if (i == 0)
-		{
-			last_ring = init_ring;
-		}
-		else
-		{
-			last_ring = ring_set[i - 1];
-		}
-		
-
-	}
-	return ring_set;
+	return p;
 }
 
 //求解vector均值
@@ -833,20 +819,55 @@ vector<cv::Point> drop_next_ring(vector <cv::Point> v_now,vector<cv::Point> last
 			}
 			else 
 			{
-				//if(ii==224)
-				//cout <<11<<ii <<endl;
 				flag=notfunction(flag);
 				continue;
 			}
 		}
 		else if((v_xdelta[ii] >= 18 || v_xdelta[ii] <= -18) && (v_ydelta[ii] <= 50))
 		{
-			//cout << 22<<ii << endl;
 			flag = notfunction(flag);
 			continue;
 		}
 	}
 	return v_now_;
+}
+
+//索引所有的placido环
+vector<vector<cv::Point>> find_all_ring(cv::Mat polar_thin)
+{
+	vector<vector<cv::Point>> ring_set;
+	vector<cv::Point> last_ring, init_ring, v_now, v_now_, fit_line;
+	cv::Mat wh;
+	//last_ring ：上一个环，主要是用于下一个环的索引，当索引第0个环的时候就是等于init_ring，否则就是ring_set 的i-1环
+	// init_ring ：初始化环，主要是用于第零个环的索引，数值是x=5的直线
+	for (int ii = 0; ii < polar_thin.rows; ii++)
+	{
+		init_ring.push_back(cv::Point(5, ii));
+	}
+	for (int i = 0; i <= 18; i++)
+	{
+		vector<cv::Point>().swap(last_ring);
+		if (i == 0)
+		{
+			last_ring = init_ring;
+		}
+		else
+		{
+			last_ring = ring_set[i - 1];
+		}
+
+	}
+	return ring_set;
+}
+
+//极坐标变化逆变换
+vector<vector<cv::Point>> inv_polar_ring(vector<vector<cv::Point>> ring_set)
+{
+	vector<vector<cv::Point>> inv_ring_set;
+	for (int ii = 0; ii < ring_set.size(); ii++)
+	{
+		
+	}
 }
 
 // 主函数
@@ -914,8 +935,6 @@ int main()
 			cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 7, -1.2); // 自适应阈值分割▲
 		cv::medianBlur(img_adath, img_adath, 3); // 中值滤波▲
 		cv::imwrite(adathr + file, img_adath);
-
-
 
 		// 漫水填充法取最中间的若干个环
 		//先对二值图进行闭运算，为了将中心可能出现部分小断环闭合起来
@@ -1148,7 +1167,6 @@ int main()
 					temp=SortContourPoint(temp);
 					v_now = push_all(temp[0], v_now);
 					last_y=temp[0][temp[0].size() - 1].y;
-
 					break;
 				}
 			}
@@ -1167,17 +1185,11 @@ int main()
 		}
 		cv::floodFill(polar_thin, cv::Point(v_now[0].x, v_now[0].y), cv::Scalar(0), 0, cv::Scalar(), cv::Scalar(), 8);
 		vector<cv::Point> p;
-		//set<cv::Point> temp_set(v_now.begin(),v_now.end());
-		//v_now.assign(temp_set.begin(),temp_set.end());
+		p = xy2yx(v_now);
 		cout << "there are " << v_now.size() << " points in this line " << endl;
-		for (i = 0; i < v_now.size(); i++)
-		{
-			p.push_back(cv::Point(v_now[i].y, v_now[i].x));
-		}
 		int step = v_now.size()/6;
 		piecewise_poly_para A;
 		A = PiecewisePoly_fit(p,6);
-		//cout <<A.A_set[0] <<endl;
 		vector<cv::Point>fit_line;
 		fit_line = PiecewisePoly_predict(A,6,polar.rows,step,v_now[0]);
 		cv::Mat wh = cv::Mat::zeros(polar_thin.size(),CV_8U);
@@ -1278,7 +1290,6 @@ int main()
 						//当扫描的第0个点的y大于等于25并且待拟合的点的y小于25
 						if ((v_now[0].y >= 25) && (ii<=25))
 							vv = v_now[0].x;
-						
 						else
 							vv = int(polycaulate(double(ii), AA));
 						fit_line.push_back(cv::Point(vv, ii));
